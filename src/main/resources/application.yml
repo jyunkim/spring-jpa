@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    url: jdbc:h2:tcp://localhost/~/Spring/jpashop
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create # 매 실행마다 테이블 다시 생성
+    properties:
+      hibernate:
+#        show_sql: true -> SQL를 System.out으로 출력
+        format_sql: true
+
+logging:
+  level:
+    org.hibernate.SQL: debug # SQL를 로거를 통해 출력
