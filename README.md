@@ -74,7 +74,8 @@ Address - 임베디드 타입(값 타입)
 ### 엔티티 클래스 개발
 **가급적 Getter는 열어두고, Setter는 꼭 필요한 경우에만 사용하자**
 - Getter는 아무리 호출해도 호출 하는 것 만으로 어떤 일이 발생하지는 않는다. 하지만 Setter를 호출하면 데이터가 변한다. 
-- 따라서 Setter를 막 열어두면 엔티티가 왜 변경되는지 추적하기 점점 힘들어진다. 
+- 따라서 Setter를 막 열어두면 엔티티가 왜 변경되는지 추적하기 점점 힘들어진다.
+- 생성 이후에 변경할 필요가 없는데 setter가 외부에 노출되어 있으면 이것을 사용하는 다른 개발자들은 필드를 변경해도 된다고 생각하게 된다.
 - 그래서 엔티티를 변경할 때는 Setter 대신에 변경 지점이 명확하도록 변경을 위한 비즈니스 메서드를 별도로 제공하는 것이 좋다.
 
 **모든 연관관계는 지연로딩(LAZY)으로 설정하자**
@@ -119,5 +120,147 @@ JPA를 이용한 데이터 변경은 트랜잭션 안에서 일어나야 함
 (만약 이 위치에 없으면 src/resources/application.yml을 읽음)
 
 스프링 부트는 datasource 설정이 없으면, 기본적으로 메모리 DB를 사용하고, driver-class도 현재 등록된
-라이브러리를 보고 찾아줌. 추가로 ddl-auto도 create-drop 모드로 동작    
+라이브러리를 보고 찾아줌   
+추가로 ddl-auto도 create-drop 모드로 동작    
 => 데이터소스나, JPA 관련된 별도의 추가 설정을 하지 않아도 됨
+
+**도메인 모델 패턴**   
+엔티티가 비즈니스 로직을 가지고 객체 지향의 특성을 적극 활용하는 것   
+도메인 주도 설계에서는 엔티티 자체가 해결할 수 있는 비즈니스 로직(데이터 값 조작)은 엔티티 내부에 작성하는 것이 응집도를 늘리고 관리하기 좋음      
+데이터 조작을 외부에서 하려면 setter가 필요한데 엔티티 내부에서 하게 되면 setter를 사용하지 않아도 됨 
+
+```java
+@Entity
+@Inheritance(strategy = InheritanceType.SINGLE_TABLE)
+@DiscriminatorColumn(name = "dtype")
+@Getter
+public abstract class Item {
+
+    @Id @GeneratedValue
+    @Column(name = "item_id")
+    private Long id;
+
+    private String name;
+    private int price;
+    private int stockQuantity;
+
+    @ManyToMany(mappedBy = "items")
+    private List<Category> categories = new ArrayList<>();
+
+    // 비즈니스 로직
+    /**
+     * 재고수량 증가
+     */
+    public void addStock(int quantity) {
+        stockQuantity += quantity;
+    }
+
+    /**
+     * 재고수량 감소
+     */
+    public void removeStock(int quantity) {
+        int resStock = stockQuantity - quantity;
+        if (resStock < 0) {
+            throw new NotEnoughStockException("Not enough stock");
+        }
+        stockQuantity = resStock;
+    }
+}
+```
+
+객체 생성 방법
+1. 생성자
+2. 생성 메서드(정적 팩토리 메서드)
+3. Builder
+
+복잡한 엔티티의 경우 단순히 new를 사용하는 방법보다는 생성 메서드를 사용하는 것이 메서드 이름을 통해 생성 의도를 나타낼 수 있기 때문에 더 좋음   
+-> 디폴트 생성자를 private로 설정(JPA 사용 시 protected)   
+단순한 엔티티라면 자바가 기본으로 제공하는 new를 사용
+
+### 검색 기능
+JPA에서의 **동적쿼리**
+
+**JPQL**
+```java
+@Repository
+public class OrderRepository {
+    
+  public List<Order> findAll(OrderSearch orderSearch) {
+    String jpql = "select o From Order o join o.member m";
+    boolean isFirstCondition = true;
+
+    //주문 상태 검색
+    if (orderSearch.getOrderStatus() != null) {
+      if (isFirstCondition) {
+        jpql += " where";
+        isFirstCondition = false;
+      } else {
+        jpql += " and";
+      }
+      jpql += " o.status = :status";
+    }
+    
+    //회원 이름 검색
+    if (StringUtils.hasText(orderSearch.getMemberName())) {
+      if (isFirstCondition) {
+        jpql += " where";
+        isFirstCondition = false;
+      } else {
+        jpql += " and";
+      }
+      jpql += " m.name like :name";
+    }
+
+    TypedQuery<Order> query = em.createQuery(jpql, Order.class)
+            .setFirstResult(10) // 10번째 요소부터
+            .setMaxResults(1000); // 최대 1000건
+
+    if (orderSearch.getOrderStatus() != null) {
+      query = query.setParameter("status", orderSearch.getOrderStatus());
+    }
+    if (StringUtils.hasText(orderSearch.getMemberName())) {
+      query = query.setParameter("name", orderSearch.getMemberName());
+    }
+    return query.getResultList();
+  }
+}
+```
+JPQL 쿼리를 문자로 생성하기는 번거롭고, 실수로 인한 버그가 발생하기 쉬움
+
+**JPA Criteria**
+```java
+@Repository
+public class OrderRepository {
+    
+  public List<Order> findAllByCriteria(OrderSearch orderSearch) {
+    CriteriaBuilder cb = em.getCriteriaBuilder();
+    CriteriaQuery<Order> cq = cb.createQuery(Order.class);
+    Root<Order> o = cq.from(Order.class);
+    Join<Order, Member> m = o.join("member", JoinType.INNER); //회원과 조인
+    
+    List<Predicate> criteria = new ArrayList<>();
+    
+    //주문 상태 검색
+    if (orderSearch.getOrderStatus() != null) {
+      Predicate status = cb.equal(o.get("status"), orderSearch.getOrderStatus());
+      criteria.add(status);
+    }
+    
+    //회원 이름 검색
+    if (StringUtils.hasText(orderSearch.getMemberName())) {
+      Predicate name = cb.like(m.<String>get("name"), "%" + orderSearch.getMemberName() + "%");
+      criteria.add(name);
+    }
+    
+    cq.where(cb.and(criteria.toArray(new Predicate[criteria.size()])));
+    TypedQuery<Order> query = em.createQuery(cq).setMaxResults(1000);
+    return query.getResultList();
+  }
+}
+```
+JPA Criteria는 JPA 표준 스펙으로, JPQL을 자바 코드로 작성할 수 있게 해줌   
+But, 실무에서 사용하기에 너무 복잡하고 가독성이 떨어져 유지보수하기 어려움
+
+**Querydsl**   
+쿼리를 자바 코드로 작성   
+문법 오류를 컴파일 시점에 알 수 있음
