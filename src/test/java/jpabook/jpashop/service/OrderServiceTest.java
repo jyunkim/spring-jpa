@@ -32,7 +32,7 @@ class OrderServiceTest {
         // given
         Member member = createMember();
 
-        Item book = createItem("JPA book", 10000, 10);
+        Item book = createBook("JPA book", 10000, 10, "Kim", "123");
 
         int orderCount = 2;
 
@@ -51,7 +51,7 @@ class OrderServiceTest {
     @Test
     void orderExceedStockQuantity() {
         Member member = createMember();
-        Item book = createItem("JPA book", 10000, 10);
+        Item book = createBook("JPA book", 10000, 10, "Kim", "123");
 
         int orderCount = 11;
 
@@ -63,7 +63,7 @@ class OrderServiceTest {
     void cancelOrder() {
         // given
         Member member = createMember();
-        Item book = createItem("JPA book", 10000, 10);
+        Item book = createBook("JPA book", 10000, 10, "Kim", "123");
 
         int orderCount = 2;
 
@@ -79,11 +79,8 @@ class OrderServiceTest {
         assertThat(book.getStockQuantity()).isEqualTo(10);
     }
 
-    private Item createItem(String name, int price, int stockQuantity) {
-        Item book = new Book();
-        book.setName(name);
-        book.setPrice(price);
-        book.setStockQuantity(stockQuantity);
+    private Item createBook(String name, int price, int stockQuantity, String author, String isbn) {
+        Item book = new Book(name, price, stockQuantity, author, isbn);
         em.persist(book);
         return book;
     }

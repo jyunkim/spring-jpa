@@ -2,14 +2,13 @@ package jpabook.jpashop.domain;
 
 import jpabook.jpashop.domain.item.Item;
 import lombok.Getter;
-import lombok.Setter;
 
 import javax.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Getter @Setter
+@Getter
 public class Category {
 
     @Id @GeneratedValue
@@ -35,6 +34,6 @@ public class Category {
 
     public void addChildrenCategory(Category category) {
         children.add(category);
-        category.setParent(this);
+        category.parent = this;
     }
 }
