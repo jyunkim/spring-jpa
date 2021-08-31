@@ -264,3 +264,116 @@ But, 실무에서 사용하기에 너무 복잡하고 가독성이 떨어져 유
 **Querydsl**   
 쿼리를 자바 코드로 작성   
 문법 오류를 컴파일 시점에 알 수 있음
+
+### 웹 계층 개발
+부트스트랩에서 css, js 파일 가져올 시 적용이 안되면 reload(synchronize), rebuild 해줌
+
+스프링 부트 타임리프 viewName 매핑   
+-> resources:templates/ + {ViewName} + .html
+
+값을 뷰에 전달하기 위해 스프링 MVC가 제공하는 Model 객체에 보관
+
+```java
+@Getter @Setter // Setter를 써줘야 값이 들어감
+public class MemberForm {
+
+    // 필수 필드
+    @NotEmpty(message = "회원 이름은 필수입니다.")
+    private String name;
+  
+    // 선택 필드
+    private String city;
+    private String street;
+    private String zipcode;
+}
+```
+```java
+@Controller
+@RequiredArgsConstructor
+public class MemberController {
+
+    @PostMapping("/members/new")
+    // Validation 기능을 사용한다고 명시
+    // 오류 처리
+    public String create(@Valid MemberForm form, BindingResult result) {
+        Address address = new Address(form.getCity(), form.getStreet(), form.getZipcode());
+
+        Member member = new Member();
+        member.setName(form.getName());
+        member.setAddress(address);
+
+        memberService.join(member);
+        // 리다이렉트
+        return "redirect:/";
+    }
+}
+```
+- @Valid: @NotEmpty와 같은 validation 기능 사용 명시   
+- BindingResult: 이것을 사용하지 않으면 에러 발생 시 white label page로 넘어가지만, 
+사용 시 변수에 에러 내용이 담겨 처리 가능
+  
+**Validation 위치**   
+1. HTTP 요청 파라미터에 대한 부분은 컨트롤러에서 최대한 검증 (Ex. price >= 0)
+2. 내부 DB 조회나 외부 호출이 필요한 검증들은 서비스에서 검증 (Ex. stockQuantity >= 0)
+3. 해당 엔티티가 가지고 있는 데이터 만으로 모두 검증할 수 있는 경우는 엔티티에서 검증
+
+**Form 사용 이유**   
+Entity를 그대로 사용하면 화면을 처리하기 위한 기능이 추가됨   
+-> 코드가 지저분해짐   
+-> 유지보수하기 어려워짐   
+=> 별도의 Form 객체나 DTO(Data Transform Object) 사용(Form은 controller 계층에서만 사용)
+
+\* DTO: 데이터를 전송하기 위한 getter, setter만 있는 객체
+
+Get 데이터를 뿌릴 때에도 entity를 그대로 뿌리기 보다는 DTO로 변환해서 화면에 필요한 데이터만 뿌리는 것이 좋음    
+** API의 경우에는 절대 entity를 반환하면 안됨!!   
+-> 로직을 추가하면 스펙이 변하기 때문
+
+### 변경 감지와 병합(merge)
+**준영속 엔티티**   
+영속성 컨텍스트가 더는 관리하지 않는 엔티티   
+임의로 만들어낸 엔티티 중 이미 DB에 한번 저장되어서 식별자가 존재하는 엔티티도 포함
+
+준영속 엔티티를 수정하는 2가지 방법   
+1. 변경 감지 기능
+2. 병합(merge)
+
+**변경 감지(Dirty Checking)**   
+```java
+@Transactional
+void update(Item itemParam) { // itemParam: 파리미터로 넘어온 준영속 상태의 엔티티
+    Item findItem = em.find(Item.class, itemParam.getId()); // 영속 엔티티를 조회
+    findItem.setPrice(itemParam.getPrice()); // 데이터를 수정(트랜잭션)
+}
+```
+준영속 엔티티의 식별자를 이용하여 영속성 컨텍스트에서 엔티티를 다시 조회한 후에 데이터를 수정하는 방법   
+트랜잭션이 끝나고 커밋 시점에 JPA가 flush를 날려 변경사항을 찾고 쿼리를 생성해서 DB에 반영   
+save() 호출 필요 x
+
+**병합(merge)**   
+```java
+@Transactional
+void update(Item itemParam) { // itemParam: 파리미터로 넘어온 준영속 상태의 엔티티
+    Item mergeItem = em.merge(itemParam);
+}
+```
+준영속 상태의 엔티티를 영속 상태로 변경할 때 사용하는 기능   
+준영속 엔티티의 식별자 값으로 영속 엔티티를 조회한 후, 영속 엔티티의 값을 준영속 엔티티의 값으로 모두 교체   
+트랜잭션 커밋 시점에 변경 감지 기능이 동작해서 데이터베이스에 UPDATE SQL이 실행   
+
+![image](https://user-images.githubusercontent.com/68456385/131481174-8f7a87c5-916d-4633-bfd9-e293bcce50d3.png)
+1. merge()를 실행한다.
+2. 파라미터로 넘어온 준영속 엔티티의 식별자 값으로 1차 캐시에서 엔티티를 조회한다.
+   2-1. 만약 1차 캐시에 엔티티가 없으면 데이터베이스에서 엔티티를 조회하고, 1차 캐시에 저장한다.
+3. 조회한 영속 엔티티(mergeMember)에 member 엔티티의 값을 채워 넣는다. 이때 member 엔티티의 모든 값
+   을 mergeMember에 밀어 넣는다. mergeMember의 “회원1”이라는 이름이 “회원명변경”으로 바뀐다.
+4. 영속 상태인 mergeMember를 반환한다.
+
+변경 감지 기능을 사용하면 원하는 속성만 선택해서 변경할 수 있지만, 병합을 사용하면 모든 속성이 변경되고, 
+병합시 값이 없으면 null로 업데이트가 됨      
+=> 엔티티를 변경할 때는 변경 감지를 사용
+
+- 컨트롤러에서 되도록이면 엔티티를 생성하지 말자
+- 파라미터 또는 dto를 이용하여 트랜잭션이 있는 서비스 계층에 식별자와 변경할 데이터를 전달
+- 트랜잭션이 있는 서비스 계층에서 영속 상태의 엔티티를 조회하고, 엔티티의 데이터를 직접 변경
+- 데이터 변경 시 setter를 사용하면 변경 지점을 파악하기 어렵기 때문에 엔티티에 의미있는 메서드를 만들어 변경
