@@ -14,8 +14,8 @@ public class ItemRepository {
     // 스프링 데이터 JPA를 사용하면 @Autowired로 주입 가능
     private final EntityManager em;
 
-    // 신규 등록이면 persist
-    // 이미 존재하는 id면 update
+    // 신규 등록이면 persist - Id를 생성해서 DB에 저장(@GeneratedValue 필요)
+    // 이미 id가 존재하면 merge
     public void save(Item item) {
         if (item.getId() == null) {
             em.persist(item);

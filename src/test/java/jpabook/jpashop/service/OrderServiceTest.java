@@ -6,9 +6,9 @@ import jpabook.jpashop.domain.Order;
 import jpabook.jpashop.domain.OrderStatus;
 import jpabook.jpashop.domain.item.Book;
 import jpabook.jpashop.domain.item.Item;
+import jpabook.jpashop.dto.UpdateBookDto;
 import jpabook.jpashop.exception.NotEnoughStockException;
 import jpabook.jpashop.repository.OrderRepository;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -80,7 +80,8 @@ class OrderServiceTest {
     }
 
     private Item createBook(String name, int price, int stockQuantity, String author, String isbn) {
-        Item book = new Book(name, price, stockQuantity, author, isbn);
+        Book book = new Book();
+        book.update(new UpdateBookDto(name, price, stockQuantity, author, isbn));
         em.persist(book);
         return book;
     }
