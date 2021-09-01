@@ -2,8 +2,9 @@ package jpabook.jpashop.repository;
 
 import jpabook.jpashop.domain.OrderStatus;
 import lombok.Getter;
+import lombok.Setter;
 
-@Getter
+@Getter @Setter
 public class OrderSearch {
 
     private String memberName;
