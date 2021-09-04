@@ -95,7 +95,7 @@ Address - 임베디드 타입(값 타입)
 2. . -> _
 3. 대문자 -> 소문자
 
-### 애플리케이션 구현
+## 애플리케이션 구현
 레포지토리 계층 개발 -> 서비스 계층 개발 -> 테스트 -> 웹 계층 개발
 
 @PersistenceContext: EntityManager 주입.
@@ -129,6 +129,7 @@ JPA를 이용한 데이터 변경은 트랜잭션 안에서 일어나야 함
 도메인 주도 설계에서는 엔티티 자체가 해결할 수 있는 비즈니스 로직(데이터 값 조작)은 엔티티 내부에 작성하는 것이 응집도를 늘리고 관리하기 좋음      
 데이터 조작을 외부에서 하려면 setter가 필요한데 엔티티 내부에서 하게 되면 setter를 사용하지 않아도 됨 
 
+### 상품 엔티티 개발
 ```java
 @Entity
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
@@ -177,7 +178,7 @@ public abstract class Item {
 -> 디폴트 생성자를 private로 설정(JPA 사용 시 protected)   
 단순한 엔티티라면 자바가 기본으로 제공하는 new를 사용
 
-### 검색 기능
+### 검색 기능 개발
 JPA에서의 **동적쿼리**
 
 **JPQL**
@@ -377,3 +378,131 @@ void update(Item itemParam) { // itemParam: 파리미터로 넘어온 준영속 
 - 파라미터 또는 dto를 이용하여 트랜잭션이 있는 서비스 계층에 식별자와 변경할 데이터를 전달
 - 트랜잭션이 있는 서비스 계층에서 영속 상태의 엔티티를 조회하고(트랜잭션 내에서만 조회 가능), 엔티티의 데이터를 직접 변경
 - 데이터 변경 시 setter를 사용하면 변경 지점을 파악하기 어렵기 때문에 엔티티에 의미있는 메서드를 만들어 변경
+
+## API 개발
+### 프로젝트 분리
+예외처리와 같이 공통으로 처리할 때 대부분 패키지 단위로 적용   
+API와 화면은 공통 처리할 요소가 다름(JSON, HTML)
+
+### 회원 등록 API
+```java
+@RestController
+@RequiredArgsConstructor
+public class MemberApiController {
+
+    private final MemberService memberService;
+
+    @PostMapping("/api/members")
+    public CreateMemberResponse saveMember(@RequestBody @Valid Member member) {
+        Long id = memberService.join(member);
+        return new CreateMemberResponse(id);
+    }
+
+    @Data
+    @AllArgsConstructor
+    private static class CreateMemberResponse {
+        private Long id;
+    }
+}
+```
+- @RestController: @Controller + @ResposeBody   
+- @RequestBody: JSON으로 온 body를 파라미터에 매핑
+```java
+@Entity
+public class Member {
+
+    @Id @GeneratedValue
+    @Column(name = "member_id")
+    private Long id;
+
+    @NotEmpty(message = "회원 이름은 필수입니다.")
+    private String name;
+
+    @Embedded
+    private Address address;
+
+    @OneToMany(mappedBy = "member")
+    private List<Order> orders = new ArrayList<>();
+}
+```
+화면 계층의 검증 로직이 엔티티에 들어가면 좋지 않음   
+- API에 따라 적용 검증이 달라질 수 있음 -> 하나의 엔티티에 여러 API 요청사항을 담기 어려움
+- 엔티티가 바뀌면 API 스펙이 바뀜
+
+=> API 스펙을 위한 별도의 DTO를 생성해서 사용
+
+**API를 만들 때는 엔티티를 파라미터로 사용하지 말고, 외부에 노출하지 말자**
+
+```java
+@RestController
+@RequiredArgsConstructor
+public class MemberApiController {
+
+    private final MemberService memberService;
+
+    @PostMapping("/api/members")
+    public CreateMemberResponse saveMember(@RequestBody @Valid CreateMemberRequest request) {
+        Member member = new Member();
+        member.setName(request.getName());
+
+        Long id = memberService.join(member);
+        return new CreateMemberResponse(id);
+    }
+
+    @Data
+    @AllArgsConstructor
+    private static class CreateMemberResponse {
+        private Long id;
+    }
+
+    @Data
+    private static class CreateMemberRequest {
+        @NotEmpty(message = "회원 이름은 필수입니다.")
+        private String name;
+    }
+}
+```
+
+### 회원 조회 API
+응답으로 엔티티를 반환하면 좋지 않음
+- 엔티티의 모든 값이 노출됨
+- 응답 스펙을 맞추기 위해 로직이 추가됨(Ex. @JsonIgnore)
+- 하나의 엔티티에 여러 API를 위한 응답 로직을 담기 어려움
+- 엔티티가 변경되면 API 스펙이 변함
+- 컬렉션을 직접 반환하면 항후 API 스펙을 변경하기 어려움(객체가 아닌 컬렉션에 담기기 때문에 클라이언트에서 요구하는 필드를 추가할 수 없음)
+
+=> API 응답 스펙에 맞추어 별도의 DTO를 반환
+=> 별도의 Result 클래스를 생성해서 컬렉션을 감싼 후 반환
+
+```java
+@RestController
+@RequiredArgsConstructor
+public class MemberApiController {
+
+    private final MemberService memberService;
+    
+    @GetMapping("/api/members")
+    public Result memberList() {
+        List<Member> members = memberService.findMembers();
+        // 엔티티 -> DTO 변환
+        List<MemberDto> collect = members.stream()
+                .map(m -> new MemberDto(m.getName()))
+                .collect(Collectors.toList());
+
+        return new Result(collect, collect.size());
+    }
+
+    @Data
+    @AllArgsConstructor
+    private static class Result<T> {
+        private T data;
+        private int count; // 컬렉션이 아닌 객체이기 때문에 원하는 필드를 추가할 수 있음
+    }
+
+    @Data
+    @AllArgsConstructor
+    private static class MemberDto {
+        private String name;
+    }
+}
+```
