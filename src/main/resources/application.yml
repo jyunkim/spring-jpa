@@ -11,7 +11,7 @@ spring:
     properties:
       hibernate:
 #        show_sql: true -> SQL를 System.out으로 출력
-        format_sql: true
+        format_sql: true # 출력을 이쁘게
 
 logging:
   level:
