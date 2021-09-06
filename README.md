@@ -1,5 +1,119 @@
-# Spring JPA
+# JPA
 출처: https://www.inflearn.com/course/%EC%8A%A4%ED%94%84%EB%A7%81%EB%B6%80%ED%8A%B8-JPA-%ED%99%9C%EC%9A%A9-1
+
+## JPA란?
+### SQL 중심적인 개발
+객체지향 설계를 할수록 매핑 작업이 늘어남   
+
+Jdbc, JdbcTemplate, MyBatis   
+-> 개발자가 SQL을 직접 작성해야함
+
+객체를 자바 컬렉션에 저장하듯이 DB에 저장할 수 없을까?
+
+### JPA
+Java Persistence API   
+자바 진영의 ORM 표준   
+자바 애플리케이션과 Jdbc 사이에서 동작   
+인터페이스의 모음으로 대표적인 구현체로 Hibernate가 있음
+
+**ORM**   
+Object-relational mapping(객체 관계 매핑)  
+ORM 프레임워크가 중간에서 객체와 테이블을 매핑
+
+### JPA의 장점
+1. SQL 중심적인 개발에서 객체 중심으로 개발   
+    - 특정 DB에 종속 x -> DB에 상관없이 일관된 함수 사용(hibernate.dialect 속성에 지정)
+    - 변경 감지: 자바 컬렉션을 다루는 것처럼 데이터 수정 후 따로 persist를 하지 않아도 됨. 
+    트랜잭션이 커밋되는 시점에(flush) 엔티티와 스냅샷을 비교하여 변경사항이 있으면 update SQL을 생성하여 반영 
+   
+   
+2. 생산성   
+매우 간단한 코드
+
+
+3. 유지보수   
+필드 변경 시 SQL 수정 필요 x
+
+
+4. 패러다임의 불일치 해결
+    - 상속: 자동으로 join 등 여러 테이블에 쿼리를 날림
+    - 연관관계: 자유로운 객체 그래프 탐색, 신뢰할 수 있는 엔티티
+    - 비교: 동일한 트랜잭션에서 조회한 엔티티는 같음을 보장
+  
+
+5. 성능 최적화
+    - 1차 캐시와 동일성 보장: 동일한 트랜잭션에서 다시 조회 시 캐싱을 통해 DB에 접근하지 않아 SQL이 한번만 실행됨
+    - 트랜잭션을 지원하는 쓰기 지연: 트랜잭션을 커밋할 때까지 쿼리를 쌓아놨다 한번에 SQL 적용 -> 네트워크를 여러번 타지 않아도 됨
+    - 지연 로딩: 객체가 실제로 사용될 때 로딩(조회 쿼리를 분리해서 보냄)
+\* 즉시 로딩: Join으로 연관된 객체까지 한번에 조회   
+      ![image](https://user-images.githubusercontent.com/68456385/132205556-4c5a9fe0-786c-4f81-bd81-0b171da8b526.png)
+
+### JPA 구동 방식
+![image](https://user-images.githubusercontent.com/68456385/132178586-d4efbc1c-393f-4dd9-a8b4-0c299b774fa7.png)
+```java
+EntityManagerFactory emf = Persistence.createEntityManagerFactory("hello"); // persistence-unit name
+
+EntityManager em = emf.createEntityManager();
+
+EntityTransaction tx = em.getTransaction();
+tx.begin();
+
+try {
+    Member member = new Member();
+    member.setName("memberA");
+    em.persist(member);
+    tx.commit();
+} catch (Exception e) {
+    tx.rollback();
+} finally {
+    em.close();
+}
+emf.close();
+```
+Entity Manager Factory는 애플리케이션 전체에서 하나를 공유   
+Entity Manager는 요청이 올 때마다 생성
+
+**JPA의 모든 데이터 변경은 트랜잭션안에서 실행되어야 함**
+
+**JPQL**   
+SQL을 추상화한 객체 지향 쿼리 언어   
+테이블이 아닌 엔티티를 대상으로 쿼리
+
+## 영속성 관리
+### 영속성 컨텍스트
+엔티티를 영구 저장하는 환경   
+Entity Manager를 통해 접근   
+매 트랜잭션마다 생성되고, 트랜잭션이 끝나면 종료됨
+```java
+em.persist(entity);
+```
+-> 엔티티를 영속성 컨텍스트에 영속      
+커밋을 해야 DB에 저장됨
+
+### 엔티티의 생명주기
+- 비영속: 영속성 컨텍스트와 관계없는 새로운 상태
+- 영속: 영속성 컨텍스트에 관리되는 상태(저장, 조회 시)
+- 준영속: 영속성 컨텍스트에 저장되었다가 분리된 상태
+- 삭제: 삭제된 상태
+
+### 영속성 컨텍스트의 역할
+1. 1차 캐시
+
+2. 동일성 보장
+   
+3. 트랜잭션을 지원하는 쓰기 지연(Transactional write-behind)
+
+4. 변경 감지(Dirty Checking)
+
+5. 지연 로딩(Lazy Loading)
+
+### 플러시
+영속성 컨텍스트의 변경내용을 DB에 반영   
+트랜잭션 커밋, JPQL 쿼리 실행 시 호출
+
+- 변경 감지
+- 쓰기 지연 SQL 저장소의 쿼리를 DB에 전송
+
 
 ## 프로젝트 설정
 ### 프로젝트 생성
