@@ -50,6 +50,7 @@ ORM 프레임워크가 중간에서 객체와 테이블을 매핑
 
 ### JPA 구동 방식
 ![image](https://user-images.githubusercontent.com/68456385/132178586-d4efbc1c-393f-4dd9-a8b4-0c299b774fa7.png)
+
 ```java
 EntityManagerFactory emf = Persistence.createEntityManagerFactory("hello"); // persistence-unit name
 
@@ -87,8 +88,8 @@ Entity Manager를 통해 접근
 ```java
 em.persist(entity);
 ```
--> 엔티티를 영속성 컨텍스트에 영속      
-커밋을 해야 DB에 저장됨
+-> 엔티티를 영속성 컨텍스트에 영속   
+1차 캐시에 먼저 저장하고, 커밋 이후에 DB에 저장됨
 
 ### 엔티티의 생명주기
 - 비영속: 영속성 컨텍스트와 관계없는 새로운 상태
@@ -114,6 +115,150 @@ em.persist(entity);
 - 변경 감지
 - 쓰기 지연 SQL 저장소의 쿼리를 DB에 전송
 
+## 엔티티 매핑
+### 객체와 테이블 매핑
+**@Entity**   
+JPA가 관리하는 엔티티   
+테이블과 매핑할 클래스   
+기본 생성자 필요(public 또는 protected) -> 리플렉션   
+final, enum, interface, inner 클래스 사용 x
+
+### 데이터베이스 스키마 자동 생성
+DDL을 애플리케이션 실행 시점에 자동 생성   
+데이터베이스 방언을 활용하여 DB에 맞는 적절한 DDL 생성
+
+spring.jpa.hibernate.ddl-auto
+![image](https://user-images.githubusercontent.com/68456385/132302678-f8de76be-cfc5-4a42-bb64-1a7811b1742e.png)
+
+**운영 단계에서는 절대 create, create-drop, update를 사용하면 안됨**   
+- 개발 초기 단계 - create, update
+- 테스트 단계 - update, validate
+- 운영 단계 - validate, none
+
+**@Table**   
+엔티티와 매핑할 테이블 설정
+![image](https://user-images.githubusercontent.com/68456385/132307415-550bbda9-3fd7-4dfd-9381-d203c80de2b4.png)
+
+### 필드와 컬럼 매핑
+**@Column**   
+칼럼 제약조건 추가
+![image](https://user-images.githubusercontent.com/68456385/132305507-03a090c0-8617-40e8-b1bc-410724511ef7.png)   
+unique 옵션은 제약조건 이름이 임의의 문자열로 나오기 때문에 @Table 제약조건을 사용   
+@Table(uniqueConstraints = {@UniqueConstraint( name = "NAME_AGE_UNIQUE",
+columnNames = {"NAME", "AGE"} )})
+
+**@Enumerated**   
+Enum 타입 매핑   
+EnumType
+- ORDINAL: enum 순서를 저장
+- STRING: enum 이름을 저장
+
+enum 값이 추가될 경우 순서가 꼬이기 때문에 STRING 사용
+
+**@Temporal**   
+Date 타입 매핑   
+TemporalType
+- DATE: 날짜
+- TIME: 시간
+- TIMESTAMP: 날짜, 시간
+
+최신 hibernate에서 지원하는 LocalDate, LocalDateTime 사용 시 생략 가능
+
+**@Lob**   
+Text형(CLOB, BLOB)과 매핑
+
+**@Transient**   
+필드 매핑 x -> 칼럼 생성 x
+
+### 기본 키 매핑
+기본 키 제약 조건: not null, unique, not change   
+-> 이 조건을 만족하는 자연키(주민번호)는 찾기 어려움   
+-> 임의의 대체키 사용   
+-> Long형 대체키 + 키 생성 전략 사용
+
+**@Id**   
+Primary key와 매핑
+
+**@GeneratedValue**   
+자동 생성   
+strategy 설정 가능   
+GenerationType
+- AUTO(기본값): DB 방언에 맞춰서 생성
+- IDENTITY: 기본 키 생성을 DB에 위임(Ex. AUTO_INCREMENT). 
+  영속성 컨텍스트에 저장되기 위해서는 기본 키값이 있어야 하므로 persist 시점에 즉시 insert SQL을 실행하고 DB에서 식별자를 조회   
+  -> 쓰기 지연 전략 사용 불가   
+  주로 MySQL에서 사용
+- SEQUENCE: DB 시퀀스 오브젝트 사용. 시퀀스 오브젝트에서 값을 가져와 기본 키에 저장. @SequenceGenerator 필요   
+  주로 Oracle에서 사용
+  ![image](https://user-images.githubusercontent.com/68456385/132311918-a6b4cee2-f97c-45b4-a0fb-56000117ace6.png)   
+  allocationSize: DB에서 50씩 증가시키고 애플리케이션에서 1씩 증가시켜 사용 -> 메모리에만 접근
+- TABLE: 키 생성 테이블을 하나 생성해서 사용. @TableGenerator      
+-> 모든 DB에 적용 가능하지만, 성능 문제 발생
+
+## 연관관계 매핑
+테이블의 외래 키를 객체에 그대로 가져오는 것보다는 참조값을 가져오는 것이 좋음(find를 다시 하지 않아도 됨)   
+-> 객체의 참조와 테이블의 외래 키를 매핑
+
+### 단방향 연관관계
+![image](https://user-images.githubusercontent.com/68456385/132320425-378b025d-40f4-4b7d-a99e-70ada7d49e77.png)
+
+```java
+@ManyToOne
+@JoinColumn(name = "TEAM_ID")
+private Team team;
+```
+
+### 양방향 연관관계
+![image](https://user-images.githubusercontent.com/68456385/132321420-6215bb33-6aac-448d-80ad-27801fb41602.png)
+
+객체를 양방향으로 참조하려면 단방향 연관관계 2개를 만들어야함   
+테이블은 외래 키 하나로 양방향 연관관계를 가짐
+
+객체 연관관계
+- 회원 -> 팀(단방향)
+- 팀 -> 회원(단방향)
+
+테이블 연관관계
+- 회원 <-> 팀(양방향)
+
+두 참조값 중 어떤 것을 외래 키와 매핑할 것인가?
+
+**연관관계 주인**   
+두 참조값 중 하나를 연관관계 주인으로 지정   
+연관관계의 주인만이 외래 키를 관리 -> 등록, 수정 가능  
+주인이 아닌 쪽은 읽기만 가능 -> 값을 넣어도 외래 키에 반영 x   
+mappedBy 속성으로 주인 지정
+
+누구를 주인으로?   
+-> 다른 엔티티의 필드값을 수정했는데 컬럼값이 바뀌면 헷갈림   
+-> 외래 키가 있는 엔티티의 필드를 주인으로 설정
+
+![image](https://user-images.githubusercontent.com/68456385/132323729-0ea72310-eb44-4279-b8d0-cad94be66bd1.png)
+
+```java
+@OneToMany(mappedBy = "team")
+List<Member> members = new ArrayList<Member>();
+```
+
+**주의점**   
+List에 값을 넣지 않고 연관관계 주인에만 값을 넣어도 커밋이 되면 
+지연로딩을 통해 list 조회 시 연관된 객체를 모두 가져와 list에 삽입  
+
+But, 같은 트랜잭션 안에서는 조회가 되지 않기 때문에 양쪽에 값을 넣는 것이 좋음   
+-> 한 쪽에 연관관계 편의 메서드 생성
+```java
+public void addMember(Member member) {
+    members.add(member);
+    member.setTeam(this);
+}
+```
+
+양방향 매핑 시 무한 루프 주의
+- toString(): 구현 x
+- JSON 생성 라이브러리: Controller에서 엔티티를 직접 반환 x
+
+웬만하면 단방향 연관관계로 설계하고 비즈니스적으로 필요한 곳에만 양방향 연관관계로 설정
+(Ex. Order - OrderItem)
 
 ## 프로젝트 설정
 ### 프로젝트 생성
