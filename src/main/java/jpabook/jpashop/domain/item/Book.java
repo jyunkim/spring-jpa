@@ -7,7 +7,7 @@ import javax.persistence.DiscriminatorValue;
 import javax.persistence.Entity;
 
 @Entity
-@DiscriminatorValue("B")
+@DiscriminatorValue("B") // 기본값 = 엔티티 이름
 @Getter
 public class Book extends Item {
 

@@ -1,5 +1,6 @@
 package jpabook.jpashop.domain.item;
 
+import jpabook.jpashop.domain.BaseEntity;
 import jpabook.jpashop.domain.Category;
 import jpabook.jpashop.exception.NotEnoughStockException;
 import jpabook.jpashop.dto.UpdateBookDto;
@@ -10,10 +11,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Inheritance(strategy = InheritanceType.SINGLE_TABLE) // 상속관계 전략 지정. SINGLE_TABLE - 한 테이블에 모두 담음
+@Inheritance(strategy = InheritanceType.SINGLE_TABLE) // 상속관계 전략 지정. SINGLE_TABLE - 한 테이블에 모두 저장
 @DiscriminatorColumn(name = "dtype") // 구분 칼럼
 @Getter
-public abstract class Item {
+public abstract class Item extends BaseEntity {
 
     @Id @GeneratedValue
     @Column(name = "item_id")

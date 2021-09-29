@@ -13,7 +13,7 @@ import java.util.List;
 @Table(name = "orders") // 테이블 이름 지정
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED) // 디폴트 생성자를 protected로 설정
-public class Order {
+public class Order extends BaseEntity {
 
     @Id @GeneratedValue
     @Column(name = "order_id")

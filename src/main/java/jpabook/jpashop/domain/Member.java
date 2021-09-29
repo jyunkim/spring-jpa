@@ -9,7 +9,7 @@ import java.util.List;
 
 @Entity
 @Getter @Setter
-public class Member {
+public class Member extends BaseEntity {
 
     @Id @GeneratedValue
     @Column(name = "member_id") // 테이블은 관례상 테이블명_id를 많이 사용
