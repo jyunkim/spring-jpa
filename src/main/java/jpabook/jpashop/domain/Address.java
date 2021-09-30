@@ -24,4 +24,9 @@ public class Address {
     // public으로 두는 것 보다는 protected로 설정하는 것이 그나마 더 안전
     protected Address() {
     }
+
+    // 값 타입을 사용하면 의미있는 비즈니스 메서드를 만들 수 있음
+    public String fullAddress() {
+        return getCity() + " " + getStreet() + " " + getZipcode();
+    }
 }
