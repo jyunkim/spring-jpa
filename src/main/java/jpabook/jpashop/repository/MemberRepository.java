@@ -1,6 +1,7 @@
 package jpabook.jpashop.repository;
 
 import jpabook.jpashop.domain.Member;
+import jpabook.jpashop.dto.MemberDto;
 import org.springframework.stereotype.Repository;
 
 import javax.persistence.EntityManager;
@@ -35,6 +36,11 @@ public class MemberRepository {
         // JPQL 내 변수 - :~ 이름 설정 후 setParameter
         return em.createQuery("select m from Member m where m.name = :name", Member.class)
                 .setParameter("name", name)
+                .getResultList();
+    }
+
+    public List<MemberDto> findNameAndAge() {
+        return em.createQuery("select new jpabook.jpashop.dto.MemberDto(m.id, m.name) from Member m", MemberDto.class)
                 .getResultList();
     }
 }
