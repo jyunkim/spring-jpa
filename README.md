@@ -518,6 +518,147 @@ orphanRemoval은 child 엔티티에 null을 주었을 때도 제거
 => 값 타입 컬렉션 대신 일대다 관계로 엔티티를 만들고, 여기에 값 타입을 사용   
 + 영속성 전이, 고아 객체 제거를 사용
 
+## 객체지향 쿼리 언어
+### JPA 쿼리 방법
+- JPQL
+- JPA Criteria
+- QueryDSL
+- 네이티브 SQL
+- JDBC, MyBatis, SpringJdbcTemplate
+
+### JPQL
+JPA 사용 시 문제는 검색 쿼리   
+모든 데이터를 객체로 변환해서 검색하는 것은 불가능   
+-> SQL을 추상화한 JPQL이라는 객체 지향 쿼리 언어 제공   
+-> 특정 DB에 종속되지 않음   
+-> SQL 문법과 유사하지만 엔티티 객체를 대상으로 쿼리
+
+### JPA Criteria
+JPQL은 결국 문자열이기 때문에 동적 쿼리를 수행하기 어려움
+
+JPA Criteria는 문자열이 아닌 자바 코드로 JPQL을 작성할 수 있어 동적 쿼리를 생성하기 쉬움   
+But, 복잡하고 가독성이 떨어져 유지보수하기 어려움   
+-> 거의 사용 x
+
+### QueryDSL
+문자열이 아닌 자바 코드로 JPQL 작성 가능   
+컴파일 시점에 SQL 문법 오류를 찾을 수 있음   
+동적 쿼리를 작성하기 쉬움   
+코드 가독성이 좋음
+
+### JdbcTemplate
+위 방법으로 해결할 수 없는 경우 사용
+
+** 단, 영속성 컨텍스트를 적절한 시점에 강제로 플러시 해줘야 함
+
+### JPQL 기본 문법
+- 엔티티와 속성은 대소분자 구분
+- JPQL 키워드는 대소문자 구분 x
+- 테이블 이름이 아닌 엔티티 이름 사용
+- 별칭 필수(as 생략 가능)
+
+createQuery 리턴 타입
+- TypeQuery: 반환 타입이 명확할 때
+- Query: 반환 타입이 명확하지 않을 때(타입이 다른 컬럼 조회)   
+-> 인자로 클래스 타입 지정 x
+
+리턴 타입 변환
+- query.getResultList(): 결과가 하나 이상일 때   
+  결과가 없으면 빈 리스트 반환
+- query.getSingleResult(): 결과가 하나일 때   
+  결과가 없거나 둘 이상이면 예외 발생
+  
+### 프로젝션
+SELECT 절에 조회할 대상을 지정   
+대상: 엔티티, 임베디드 타입, 스칼라 타입
+
+- select m from Member m
+- select m.team from Member m
+- select m.address from Member m
+- select m.name, m.age from Member m
+
+**여러 타입의 값 조회**   
+1. Query 타입으로 조회
+2. Object[] 타입으로 조회
+3. new 명령어로 조회 -> 권장
+    - 값을 DTO에 담아서 조회
+    - 패키지 명을 포함한 전체 클래스 명 입력
+    - 파라미터 순서와 타입이 일치하는 생성자 필요
+
+### 페이징
+- setFirstResult(int startPosition): 조회 시작 위치(0부터 시작)
+- setMaxResults(int maxResult): 조회할 데이터 수
+
+### 조인
+- 내부 조인   
+select m from Member m join m.team t
+- 외부 조인   
+select m from Member m left join m.team t
+- 세타 조인   
+select m from Member m, Team t where m.name = t.name
+  
+**ON 절**   
+- 조인 대상을 필터링할 경우   
+Ex) 회원과 팀을 조인하면서, 팀 이름이 A인 팀만 조인   
+  select m, t from Member m left join m.team t on t.name = 'A'
+- 연관관계가 없는 엔티티를 외부 조인할 경우   
+Ex) 회원의 이름과 팀의 이름이 같은 대상 외부 조인   
+  select m, t from Member m left join Team t on m.name = t.name
+
+### 서브 쿼리
+메인 쿼리와 서브 쿼리는 alias를 따로 정의해서 쓰는게 성능이 좋음   
+Ex) select m from Member m where m.age > (select avg(m2.age) from Member m2)
+
+**서브쿼리 지원 함수**   
+- (NOT) EXISTS (subquery)   
+  select m from Member m where exists (select t from m.team t where t.name = 'A')
+- {ALL | ANY} (subquery)   
+  select o from Order o where o.orderAmount > all (select p.stockAmount from Product p)
+- (NOT) IN (subquery)
+
+**JPA 서브 쿼리 한계**   
+JPA는 select, where, having 절에서만 서브 쿼리 사용 가능(from 절에서 불가능)   
+-> join으로 풀어서 해결하거나 쿼리를 두번 날려서 해결하거나 native query 사용
+
+### 타입 표현
+Enum 타입 사용 시 패키지 명까지 포함해서 작성해야 함
+
+### 조건식
+기본 case 식
+```
+select
+    case when m.age < 10 then '학생요금'
+         when m.age > 60 then '경로요금'
+         else '일반요금'
+    end
+from Member m
+```
+
+단순 case 식
+```
+select
+    case t.name
+        when 'A' then '인센티브110%'
+        when 'B' then '인센티브120%'
+        else '인센티브100%'
+    end
+from Team t
+```
+
+COALESCE: 하나씩 조회해서 null이 아니면 반환   
+select coalesce(m.name, '이름 없는 회원') from Member m
+
+NULLIF: 두 인자가 같으면 null 반환, 다르면 첫 번째 인자 반환   
+select nullif(m.name, '관리자') from Member m
+
+### 함수
+**JPQL 기본 함수**   
+concat, substring, trim, length, locate, lower, upper 등
+
+**사용자 정의 함수**   
+하이버네이트는 사용 전 방언에 추가해야 함   
+사용하는 DB 방언을 상속받고, 사용자 정의 함수를 등록
+
 ## 프로젝트 설정
 ### 프로젝트 생성
 - 프로젝트 선택
