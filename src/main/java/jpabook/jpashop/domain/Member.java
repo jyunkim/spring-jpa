@@ -18,6 +18,7 @@ public class Member extends BaseEntity {
     private Long id;
 
     private String name;
+    private int age;
 
     @ManyToOne(fetch = FetchType.LAZY)
     private Team team;
