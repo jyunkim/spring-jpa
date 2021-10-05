@@ -1,9 +1,8 @@
 package jpabook.jpashop.service;
 
 import jpabook.jpashop.domain.Member;
-import jpabook.jpashop.repository.MemberRepository;
+import jpabook.jpashop.repository.MemberJpaRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,7 +15,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MemberService {
 
-    private final MemberRepository memberRepository;
+    private final MemberJpaRepository memberJpaRepository;
 
     /**
      * 회원가입
@@ -26,12 +25,12 @@ public class MemberService {
         // 중복 회원 검증
         // But, 여러명이 동시에 메서드를 호출하면 검증이 안될 수 있음
         validateDuplicateMember(member);
-        memberRepository.save(member);
+        memberJpaRepository.save(member);
         return member.getId();
     }
 
     private void validateDuplicateMember(Member member) {
-        List<Member> members = memberRepository.findByName(member.getName());
+        List<Member> members = memberJpaRepository.findByName(member.getName());
         if (members.size() > 0) {
             throw new IllegalStateException("이미 존재하는 회원입니다.");
         }
@@ -41,14 +40,14 @@ public class MemberService {
      * 전체 회원 조회
      */
     public List<Member> findMembers() {
-        return memberRepository.findAll();
+        return memberJpaRepository.findAll();
     }
 
     /**
      * 회원 조회
      */
     public Member findOne(Long memberId) {
-        return memberRepository.findOne(memberId);
+        return memberJpaRepository.findOne(memberId);
     }
 
     /**
@@ -57,7 +56,7 @@ public class MemberService {
     // 변경 감지
     @Transactional
     public void update(Long id, String name) {
-        Member member = memberRepository.findOne(id);
+        Member member = memberJpaRepository.findOne(id);
         member.setName(name);
     }
 }

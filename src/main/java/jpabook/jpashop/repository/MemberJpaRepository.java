@@ -9,7 +9,7 @@ import javax.persistence.PersistenceContext;
 import java.util.List;
 
 @Repository
-public class MemberRepository {
+public class MemberJpaRepository {
 
     // 스프링 부트에서 자동 주입
     @PersistenceContext
@@ -19,6 +19,10 @@ public class MemberRepository {
         // 영속성 컨텍스트에 Member 객체 삽입(PK 생성)
         // 트랜잭션이 commit되는 시점에 DB에 반영
         em.persist(member);
+    }
+
+    public void delete(Member member) {
+        em.remove(member);
     }
 
     // Primary key로 객체 찾음
@@ -42,5 +46,10 @@ public class MemberRepository {
     public List<MemberDto> findNameAndAge() {
         return em.createQuery("select new jpabook.jpashop.dto.MemberDto(m.id, m.name) from Member m", MemberDto.class)
                 .getResultList();
+    }
+
+    public long count() {
+        return em.createQuery("select count(m) from Member m", Long.class)
+                .getSingleResult();
     }
 }

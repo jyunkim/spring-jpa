@@ -1,8 +1,7 @@
 package jpabook.jpashop.service;
 
 import jpabook.jpashop.domain.Member;
-import jpabook.jpashop.repository.MemberRepository;
-import org.assertj.core.api.Assertions;
+import jpabook.jpashop.repository.MemberJpaRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -18,7 +17,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class MemberServiceTest {
 
     @Autowired MemberService memberService;
-    @Autowired MemberRepository memberRepository;
+    @Autowired
+    MemberJpaRepository memberJpaRepository;
 
     @Test
     void join() {
@@ -30,7 +30,7 @@ class MemberServiceTest {
         Long memberId = memberService.join(member);
 
         // then
-        assertThat(memberRepository.findOne(memberId)).isEqualTo(member);
+        assertThat(memberJpaRepository.findOne(memberId)).isEqualTo(member);
     }
 
     @Test
