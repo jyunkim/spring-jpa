@@ -47,7 +47,7 @@ ORM 프레임워크가 중간에서 객체와 테이블을 매핑
     - 1차 캐시와 동일성 보장: 동일한 트랜잭션에서 다시 조회 시 캐싱을 통해 DB에 접근하지 않아 SQL이 한번만 실행됨
     - 트랜잭션을 지원하는 쓰기 지연: 트랜잭션을 커밋할 때까지 쿼리를 쌓아놨다 한번에 SQL 적용 -> 네트워크를 여러번 타지 않아도 됨
     - 지연 로딩: 객체가 실제로 사용될 때 로딩(조회 쿼리를 분리해서 보냄)   
-\* 즉시 로딩: Join으로 연관된 객체까지 한번에 조회   
+\* 즉시 로딩: join으로 연관된 객체까지 한번에 조회   
       ![image](https://user-images.githubusercontent.com/68456385/132205556-4c5a9fe0-786c-4f81-bd81-0b171da8b526.png)
 
 ### JPA 구동 방식
@@ -400,11 +400,10 @@ class Member {
     private Team team;
 }
 ```
-엔티티(Member) 조회 시 연관된 엔티티(Team)를 프록시로 가져옴    
+엔티티(Member) 조회 시(em.find()) 연관된 엔티티(Team)를 프록시로 가져옴    
 -> 연관된 엔티티에 대한 조회 쿼리는 연관된 엔티티의 getter를 호출할 때 수행됨
 
-비즈니스 로직 상 연관된 엔티티를 함께 사용하는 경우가 많다면 즉시 로딩을 사용   
--> 조회 시 join으로 쿼리가 한번만 수행됨
+즉시 로딩을 사용할 경우 join으로 연관된 엔티티를 하나의 쿼리로 가져옴
 
 - @ManyToOne, @OneToOne - 기본이 즉시 로딩   
 - @OneToMany, @ManyToMany - 기본이 지연 로딩
@@ -556,9 +555,11 @@ But, 복잡하고 가독성이 떨어져 유지보수하기 어려움
 - JPQL 키워드는 대소문자 구분 x
 - 테이블 이름이 아닌 엔티티 이름 사용
 - 별칭 필수(as 생략 가능)
+- 엔티티를 직접 사용하면 식별자로 반환되어 SQL 생성   
+select m from Member m where m = :member
 
 createQuery 리턴 타입
-- TypeQuery: 반환 타입이 명확할 때
+- TypedQuery: 반환 타입이 명확할 때
 - Query: 반환 타입이 명확하지 않을 때(타입이 다른 컬럼 조회)   
 -> 인자로 클래스 타입 지정 x
 
@@ -658,6 +659,109 @@ concat, substring, trim, length, locate, lower, upper 등
 **사용자 정의 함수**   
 하이버네이트는 사용 전 방언에 추가해야 함   
 사용하는 DB 방언을 상속받고, 사용자 정의 함수를 등록
+
+### 경로 표현식
+.을 통해 객체 그래프를 탐색하는 것
+
+- 상태 필드: 단순히 값을 저장하기 위한 필드(Ex. m.name)   
+-> 경로 탐색의 끝, 더이상 탐색 불가
+- 연관 필드
+  - 단일 값 연관 필드: 대상이 엔티티(Ex. m.team)   
+  -> 묵시적 내부 조인 발생, 또 탐색 가능
+  - 컬렉션 값 연관 필드: 대상이 컬렉션(Ex. t.members)   
+  -> 묵시적 내부 조인 발생, 더이상 탐색 불가능   
+  -> FROM 절에서 명시적 조인을 통해 별칭을 얻으면 별칭을 통해 사용 가능   
+  Ex) select m.username from Team t join t.members m
+
+**묵시적 조인**   
+경로 표현식에 의해 묵시적으로 SQL 조인이 발생하는 것(내부 조인만 가능)   
+묵시적 조인이 사용되면 쿼리 튜닝이 어려워지기 때문에 지양해야 함   
+조인은 SQL 튜닝에 매우 중요한 포인트   
+-> join 키워드를 직접 사용하는 명시적 조인을 사용
+
+### fetch join
+- SQL 조인 종류가 아님
+- JPQL에서 성능 최적화를 위해 제공
+- 연관된 엔티티나 컬렉션을 쿼리 하나로 함께 조회하는 기능
+- 객체 그래프를 SQL 한번에 조회
+- join fetch 명령어로 사용   
+select m from Member m join fetch m.team   
+-> SELECT M.*, T.* FROM MEMBER M INNER JOIN TEAM T ON M.TEAM_ID=T.ID
+
+
+- em.find()   
+pk를 인자로 입력받기 때문에 연관관계가 있을 시 JPA 내부에서 최적화를 통해 join으로 한번에 가져옴   
+지연 로딩 - join을 사용하지 않고 연관 객체를 프록시로 가져온 후 프록시의 메서드를 호출할 때 조회 쿼리를 추가로 날림
+- JPQL   
+입력받은 쿼리 문자열이 그대로 SQL로 변환되기 때문에 연관관계가 있을 시 join을 사용하지 않고 조회 쿼리를 추가로 날림   
+만약 조회한 데이터가 여러개일 경우 조회된 데이터 각각 추가 쿼리가 나가서 최대 n개(조회한 데이터 수)의 추가 쿼리 발생 -> N+1 문제
+(같은 트랜잭션 안에서 한번 조회된 연관관계 객체는 캐시를 통해 추가 쿼리 발생 x)   
+그럼 직접 join을 써준다면? -> SELECT절에 지정한 엔티티만 조회하고 연관된 엔티티를 함께 조회하지 않음   
+지연 로딩 - 연관 객체를 프록시로 가져온 후 프록시 메서드를 호출할 때 추가 조회 쿼리 수행
+
+즉시 로딩 방식은 예상하지 못한 SQL이 발생하므로 지연 로딩 사용   
+만약 비즈니스에서 연관관계 객체를 함께 사용하는 경우가 많으면 fetch join을 이용해서 성능 최적화   
+여러 테이블을 조인해서 엔티티가 가진 모양이 아닌 전혀 다른 결과를 내야 한다면 일반 조인을 사용하고 
+필요한 데이터만 조회해서 DTO로 반환
+
+**컬렉션 페치 조인**   
+select t from Team t join fetch t.members      
+** 주의: 한 팀에 여러 멤버가 있으면 같은 팀 객체가 중복으로 가져와짐   
+-> DISTINCT 사용 => SQL뿐만 아니라 애플리케이션에서도 중복을 제거하여 같은 식별자를 가진 엔티티를 제거
+
+**페치 조인 한계**   
+페치 조인 대상에는 별칭을 사용하지 않아야 함(정합성 문제)   
+둘 이상의 컬렉션은 페치 조인할 수 없음   
+컬렉션 페치 조인은 페이징 API를 사용하지 않아야 함(컬렉션 내부 데이터가 짤릴 수 있음)   
+
+**페이징 API를 사용하기 위해 컬렉션 페치 조인을 사용하지 않고 N+1 문제를 어떻게 해결할까?**      
+배치 사이즈 설정   
+- @BatchSize(size = 100): 일대다 연관관계 필드에 설정. 사이즈는 1000 이하
+- 글로벌 세팅 적용   
+-> 조회된 팀마다 멤버 조회 쿼리를 날리는게 아니라 멤버를 조회할 때 배치 사이즈만큼의 팀을 한번에 가져와서 조
+
+### 다형성 쿼리
+TYPE   
+조회 대상을 특정 자식으로 한정   
+select i from Item i where type(i) in (Book, Movie)
+
+TREAT   
+select i from Item i where treat(i as Book).author='kim'
+
+### Named 쿼리
+```java
+@Entity
+@NamedQuery(
+        name = "Member.findByUsername",
+        query = "select m from Member m where m.name = :name"
+)
+public class Member {}
+```
+```java
+em.createNamedQuery("Member.findByUsername", Member.class)
+        .setParameter("name", "회원1")
+        .getResultList();
+```
+- 미리 정의해서 이름을 부여해두고 사용하는 JPQL   
+- 정적 쿼리만 사용 가능
+- 애플리케이션 로딩 시점에 초기화 후 캐싱을 통해 재사용됨
+- 애플리케이션 로딩 시점에 쿼리를 검증 -> 오류를 빨리 찾아낼 수 있음
+
+### 벌크 연산
+변경 감지 기능으로 update를 하면 변경된 데이터 개수만큼 SQL이 실행
+
+```java
+int resultCount = em.createQuery("update Member m set m.age = m.age + 1")
+        .executeUpdate();
+```
+- 쿼리 한번으로 여러 엔티티의 데이터를 변경
+- executeUpdate()는 변경된 엔티티 수 반환
+- update, delete 지원
+- 하이버네이트에서는 insert까지 지원
+
+벌크 연산은 영속성 컨텍스트를 무시하고 DB에 직접 쿼리   
+-> 벌크 연산을 먼저 실행하거나 벌크 연산 수행 후 영속성 컨텍스트 초기화(em.clear())   
+벌크 연산도 JPQL이기 때문에 수행 전에는 자동으로 flush됨
 
 ## 프로젝트 설정
 ### 프로젝트 생성
