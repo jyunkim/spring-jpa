@@ -19,6 +19,9 @@ public class Member extends BaseEntity {
 
     private String name;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    private Team team;
+
     @Embedded
     private Address address;
 
