@@ -52,4 +52,11 @@ public class MemberJpaRepository {
         return em.createQuery("select count(m) from Member m", Long.class)
                 .getSingleResult();
     }
+
+    public List<Member> findByPage(int offset, int limit) {
+        return em.createQuery("select m from Member m order by m.name desc", Member.class)
+                .setFirstResult(offset)
+                .setMaxResults(limit)
+                .getResultList();
+    }
 }
