@@ -2,12 +2,31 @@ package jpabook.jpashop;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.data.domain.AuditorAware;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
+import java.util.Optional;
+import java.util.UUID;
+
+@EnableJpaAuditing
 @SpringBootApplication
 public class JpashopApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(JpashopApplication.class, args);
+	}
+
+	@Bean
+	public AuditorAware<String> auditorProvider() {
+//		return new AuditorAware<String>() {
+//			@Override
+//			public Optional<String> getCurrentAuditor() {
+//				return Optional.of(UUID.randomUUID().toString());
+//			}
+//		};
+		// 익명 클래스에 메서드가 하나면 람다로 대체 가능
+		return () -> Optional.of(UUID.randomUUID().toString());
 	}
 
 }
