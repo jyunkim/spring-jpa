@@ -5,14 +5,15 @@ import jpabook.jpashop.dto.MemberDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
+import javax.persistence.LockModeType;
+import javax.persistence.QueryHint;
 import java.util.List;
 import java.util.Optional;
 
-public interface MemberRepository extends JpaRepository<Member, Long> {
+public interface MemberRepository extends JpaRepository<Member, Long>, MemberRepositoryCustom {
 
     List<Member> findByName(String name); // 컬렉션
 
@@ -42,4 +43,30 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     Slice<Member> findSliceByAge(int age, Pageable pageable);
 
     List<Member> findMemberByAge(int age, Pageable pageable);
+
+    @Modifying(clearAutomatically = true)
+    @Query("update Member m set m.age = m.age + 1 where m.age >= :age")
+    int bulkAgePlus(@Param("age") int age);
+
+    @Override
+    @EntityGraph(attributePaths = {"team"})
+    List<Member> findAll();
+
+    @QueryHints(value = @QueryHint(name = "org.hibernate.readOnly", value = "true"))
+    Member findReadOnlyByName(String name);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    List<Member> findLockByName(String name);
+
+    List<NameOnly> findProjectionsByName(String name);
+
+    @Query(value = "select * from member where name = ?", nativeQuery = true)
+    List<Member> findByNativeQuery(String name);
+
+    @Query(
+            value = "select m.name from member as m",
+            countQuery = "select count(*) from member",
+            nativeQuery = true
+    )
+    Page<NameOnly> findByNativeProjection(Pageable pageable);
 }
