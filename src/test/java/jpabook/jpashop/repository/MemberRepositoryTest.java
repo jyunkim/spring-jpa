@@ -1,6 +1,7 @@
 package jpabook.jpashop.repository;
 
 import jpabook.jpashop.domain.Member;
+import jpabook.jpashop.domain.Team;
 import jpabook.jpashop.dto.MemberDto;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -10,8 +11,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
+import org.springframework.test.annotation.Commit;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import java.util.Arrays;
 import java.util.List;
 
@@ -22,6 +26,7 @@ import static org.assertj.core.api.Assertions.*;
 public class MemberRepositoryTest {
 
     @Autowired MemberRepository memberRepository;
+    @PersistenceContext EntityManager em;
 
     @Test
     void basicCRUD() {
@@ -97,7 +102,7 @@ public class MemberRepositoryTest {
     }
 
     @Test
-    public void paging() {
+    void paging() {
         Member m1 = new Member();
         m1.setName("member1");
         m1.setAge(10);
@@ -152,5 +157,107 @@ public class MemberRepositoryTest {
 
         // 페이지를 유지하면서 엔티티를 DTO로 변환
         Page<MemberDto> dtoPage = page.map(member -> new MemberDto(member.getId(), member.getName()));
+    }
+
+    @Test
+    void bulkUpdate() {
+        Member m1 = new Member();
+        m1.setName("member1");
+        m1.setAge(10);
+        memberRepository.save(m1);
+
+        Member m2 = new Member();
+        m2.setName("member2");
+        m2.setAge(20);
+        memberRepository.save(m2);
+
+        Member m3 = new Member();
+        m3.setName("member3");
+        m3.setAge(40);
+        memberRepository.save(m3);
+
+        Member m4 = new Member();
+        m4.setName("member4");
+        m4.setAge(30);
+        memberRepository.save(m4);
+
+        Member m5 = new Member();
+        m5.setName("member5");
+        m5.setAge(10);
+        memberRepository.save(m5);
+
+        int resultCount = memberRepository.bulkAgePlus(20);
+
+        // 벌크 연산은 영속성 컨텍스트를 무시하고 DB에 반영하기 때문에 초기화 필요
+//        em.clear(); -> @Modifying 옵션으로 대체
+
+        List<Member> result = memberRepository.findByName("member3");
+
+        assertThat(resultCount).isEqualTo(3);
+        assertThat(result.get(0).getAge()).isEqualTo(41);
+    }
+
+    @Test
+    @Commit
+    void entityGraph() {
+        Team t1 = new Team();
+        t1.setName("team1");
+        em.persist(t1);
+
+        Member m1 = new Member();
+        m1.setName("member1");
+        m1.setAge(10);
+        m1.setTeam(t1);
+        memberRepository.save(m1);
+
+//        List<Member> members = em.createQuery("select m from Member m join fetch m.team", Member.class)
+//                .getResultList();
+        List<Member> members = memberRepository.findAll();
+
+        for (Member member : members) {
+            member.setAge(23);
+            em.flush();
+            System.out.println(member.getCreatedAt() + " " + member.getLastModifiedAt());
+            System.out.println(member.getTeam().getName());
+        }
+    }
+
+    @Test
+    void nameOnly() {
+        Member member = new Member();
+        member.setName("member1");
+        memberRepository.save(member);
+
+        List<NameOnly> result = memberRepository.findProjectionsByName("member1");
+
+        for (NameOnly nameOnly : result) {
+            System.out.println(nameOnly.getName());
+        }
+    }
+
+    @Test
+    void nativeQuery() {
+        Member m1 = new Member();
+        m1.setName("member1");
+        memberRepository.save(m1);
+
+        Member m2 = new Member();
+        m2.setName("member2");
+        memberRepository.save(m2);
+
+        List<Member> result = memberRepository.findByNativeQuery("member1");
+        for (Member member : result) {
+            System.out.println(member.getName());
+        }
+
+        em.flush();
+        em.clear();
+
+        Page<NameOnly> page = memberRepository.findByNativeProjection(PageRequest.of(0, 3));
+        List<NameOnly> content = page.getContent();
+
+        for (NameOnly nameOnly : content) {
+            System.out.println(nameOnly.getName());
+        }
     }
 }
