@@ -2,8 +2,12 @@ package jpabook.jpashop.controller;
 
 import jpabook.jpashop.domain.Address;
 import jpabook.jpashop.domain.Member;
+import jpabook.jpashop.dto.MemberDto;
+import jpabook.jpashop.repository.MemberRepository;
 import jpabook.jpashop.service.MemberService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -18,6 +22,7 @@ import java.util.List;
 public class MemberController {
 
     private final MemberService memberService;
+    private final MemberRepository memberRepository;
 
     @GetMapping("/members/new")
     public String createForm(Model model) {
@@ -50,5 +55,14 @@ public class MemberController {
         List<Member> members = memberService.findMembers();
         model.addAttribute("members", members);
         return "members/memberList";
+    }
+
+    @GetMapping("/members/page")
+    public Page<MemberDto> pageList(Pageable pageable) {
+        Page<Member> page = memberRepository.findAll(pageable);
+//        return page.map(member -> new MemberDto(member));
+        // 메소드 참조: 람다 표현식이 하나의 메소드만을 호출하는 경우 매개변수를 제거하고 사용 가능
+        // 생성자 참조 시 new 사용
+        return page.map(MemberDto::new);
     }
 }
