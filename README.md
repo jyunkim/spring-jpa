@@ -476,6 +476,7 @@ orphanRemoval은 child 엔티티에 null을 주었을 때도 제거
 주로 기본 값 타입을 모아서 만들어 복합 값 타입이라고도 함
 
 필드를 추상화한 뒤 값 타입을 만들어서 적용
+
 ![스크린샷 2021-09-30 오후 3 24 35](https://user-images.githubusercontent.com/68456385/135398749-a4bda130-2a11-4901-9f1a-4169b715b6fe.png)
 ![스크린샷 2021-09-30 오후 3 27 43](https://user-images.githubusercontent.com/68456385/135399102-b97699c3-03dd-41b2-993b-7c4bb0c26fea.png)
 
