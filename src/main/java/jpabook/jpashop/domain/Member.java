@@ -39,4 +39,13 @@ public class Member extends BaseTimeEntity {
 
     @OneToMany(mappedBy = "member") // 연관관계 주인이 아님을 명시. Order 엔티티의 member 필드에 의해 매핑
     private List<Order> orders = new ArrayList<>(); // 컬렉션은 필드에서 초기화하는 것이 null 문제에서 안전
+
+    @Override
+    public String toString() {
+        return "Member{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", age=" + age +
+                '}';
+    }
 }

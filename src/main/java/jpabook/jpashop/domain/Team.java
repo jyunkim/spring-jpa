@@ -15,4 +15,12 @@ public class Team extends BaseEntity {
     private Long id;
 
     private String name;
+
+    @Override
+    public String toString() {
+        return "Team{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                '}';
+    }
 }
