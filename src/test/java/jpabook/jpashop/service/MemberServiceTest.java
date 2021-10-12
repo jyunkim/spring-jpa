@@ -30,7 +30,7 @@ class MemberServiceTest {
         Long memberId = memberService.join(member);
 
         // then
-        assertThat(memberJpaRepository.findOne(memberId)).isEqualTo(member);
+        assertThat(memberJpaRepository.findById(memberId)).isEqualTo(member);
     }
 
     @Test

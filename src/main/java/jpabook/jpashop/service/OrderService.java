@@ -29,7 +29,7 @@ public class OrderService {
      */
     @Transactional
     public Long order(Long memberId, Long itemId, int count) {
-        Member member = memberJpaRepository.findOne(memberId);
+        Member member = memberJpaRepository.findById(memberId);
         Item item = itemRepository.findOne(itemId);
 
         Delivery delivery = new Delivery();

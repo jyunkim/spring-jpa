@@ -47,7 +47,7 @@ public class MemberService {
      * 회원 조회
      */
     public Member findOne(Long memberId) {
-        return memberJpaRepository.findOne(memberId);
+        return memberJpaRepository.findById(memberId);
     }
 
     /**
@@ -56,7 +56,7 @@ public class MemberService {
     // 변경 감지
     @Transactional
     public void update(Long id, String name) {
-        Member member = memberJpaRepository.findOne(id);
+        Member member = memberJpaRepository.findById(id);
         member.setName(name);
     }
 }
