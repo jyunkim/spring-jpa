@@ -94,9 +94,6 @@ void paging() {
 
     List<Member> content = results.getResults();
     assertThat(content.size()).isEqualTo(2);
-    for (Member m : content) {
-        System.out.println(m.getName());
-    }
 }
 ```
 
@@ -162,10 +159,6 @@ void join_on_no_relation() {
             .from(member)
             .leftJoin(team).on(member.name.eq(team.name))
             .fetch();
-
-    for (Tuple tuple : result) {
-        System.out.println("tuple = " + tuple);
-    }
 }
 ```
 -> 실제 SQL ON절에 member.team = team.id가 적용되지 않음
@@ -200,9 +193,6 @@ void fetchJoin() {
             .join(member.team, team).fetchJoin()
             .where(member.name.eq("member1"))
             .fetchOne();
-
-    System.out.println(findMember);
-    System.out.println(findMember.getTeam());
 }
 ```
 
@@ -250,10 +240,6 @@ void basicCase() {
                     .otherwise("기타"))
             .from(member)
             .fetch();
-
-    for (String s : result) {
-        System.out.println(s);
-    }
 }
 ```
 
@@ -268,10 +254,6 @@ void complexCase() {
                     .otherwise("기타"))
             .from(member)
             .fetch();
-
-    for (String s : result) {
-        System.out.println(s);
-    }
 }
 ```
 
@@ -284,10 +266,6 @@ void concat() {
             .select(member.name, Expressions.constant("A"))
             .from(member)
             .fetch();
-
-    for (String s : result) {
-        System.out.println(s);
-    }
 }
 ```
 
@@ -299,11 +277,184 @@ void concat() {
             .select(member.name.concat("_").concat(member.age.stringValue()))
             .from(member)
             .fetch();
-
-    for (String s : result) {
-        System.out.println(s);
-    }
 }
 ```
 stringValue(): 문자가 아닌 다른 타입을 문자로 변환   
 -> Enum 타입 처리 시 자주 사용
+
+## 프로젝션 결과 반환
+- 프로젝션 대상이 하나면 타입을 명확하게 지정할 수 있음
+- 프로젝션 대상이 둘 이상이면 Tuple이나 DTO로 조회   
+-> 튜플은 되도록 레포지토리 계층에서만 사용. 다른 계층에서 querydsl에 대한 의존이 없게 하는게 좋음   
+-> 다른 계층에서 사용할 땐 DTO로 변환해서 전송
+
+JPQL에서 DTO를 조회할 때는 패키지 이름을 다 작성해야 함   
+-> querydsl 사용
+
+### Querydsl 빈 생성
+결과를 DTO로 반환할 때 사용
+- 프로퍼티 접근   
+기본 생성자, setter 필요
+```java
+select(Projections.bean(MemberDto.class, member.name, member.age))
+```
+- 필드 접근   
+기본 생성자 필요
+```java
+select(Projections.fields(MemberDto.class, member.name, member.age))
+```
+- 생성자 접근   
+해당 타입의 파라미터를 가진 생성자 필요
+```java
+select(Projections.constructor(MemberDto.class, member.name, member.age))
+```
+
+프로퍼티, 필드 접근 방식에서 이름이 다른 DTO를 사용할 경우 해결 방안(Ex. username)
+- member.name.as("username")   
+-> 생성자 접근 방식은 타입만 같으면 되기 때문에 이름은 상관x
+
+서브 쿼리 사용 시 별칭 적용
+- ExpressionUtils.as(JPAExpressions.select(memberSub.age.max()).from(memberSub), "age")
+
+### @QueryProjection
+```java
+@QueryProjection
+public MemberDto(String name, int age) {
+    this.name = name;
+    this.age = age;
+}
+```
+그리고 다시 compileQuerydsl -> DTO Q클래스 생성
+
+```java
+select(new QMemberDto(member.name, member.age))
+```
+
+**장점**   
+- 생성자 접근 - 잘못된 인자를 넣었을 때 실행 시점에 런타임 에러로 알 수 있음
+- @QueryProjection - 잘못된 인자를 넣었을 때 컴파일 에러 발생
+
+**단점**   
+DTO가 Querydsl에 대해 의존성을 가짐   
+-> DTO는 여러 계층에서 사용되기 때문에 좋지 않음
+
+## 동적 쿼리
+### BooleanBuilder
+```java
+private List<Member> searchMember1(String nameCond, Integer ageCond) {
+    // 필수값은 생성자 인자로 조건을 넣어줌
+    BooleanBuilder builder = new BooleanBuilder();
+
+    if (nameCond != null) {
+        builder.and(member.name.eq(nameCond));
+    }
+    if (ageCond != null) {
+        builder.and(member.age.eq(ageCond));
+    }
+
+    return queryFactory
+            .selectFrom(member)
+            .where(builder) // 여러 빌더도 and/or 조합 가능
+            .fetch();
+}
+```
+
+### Where 다중 파라미터
+```java
+private List<Member> searchMember2(String nameCond, Integer ageCond) {
+    return queryFactory
+            .selectFrom(member)
+            .where(nameEq(nameCond), ageEq(ageCond)) // 조건의 null값은 무시됨
+            .fetch();
+}
+
+private Predicate nameEq(String nameCond) {
+    if (nameCond == null) {
+        return null;
+    }
+    return member.name.eq(nameCond);
+}
+
+private Predicate ageEq(Integer ageCond) {
+    if (ageCond == null) {
+        return null;
+    }
+    return member.age.eq(ageCond);
+}
+```
+조건을 별도의 함수로 작성   
+-> 조건 조립 가능(BooleanExpression 타입)   
+-> isServiceable과 같이 유의미한 조건을 만들어서 재활용 가능
+
+```java
+private List<Member> searchMember2(String nameCond, Integer ageCond) {
+    return queryFactory
+            .selectFrom(member)
+//            .where(nameEq(nameCond), ageEq(ageCond)) // 조건에 null이 들어가면 무시됨
+            .where(allEq(nameCond, ageCond))
+            .fetch();
+}
+
+private BooleanExpression nameEq(String nameCond) {
+    if (nameCond == null) {
+        return null;
+    }
+    return member.name.eq(nameCond);
+}
+
+private BooleanExpression ageEq(Integer ageCond) {
+    if (ageCond == null) {
+        return null;
+    }
+    return member.age.eq(ageCond);
+}
+
+private BooleanExpression allEq(String nameCond, Integer ageCond) {
+    return nameEq(nameCond).and(ageEq(ageCond));
+}
+```
+BooleanExpression: Predicate 상속
+
+만약 모든 조건이 null일 경우 전체 데이터를 가져오기 때문에 페이징과 함께 만드는 것이 좋음
+
+## 중급 문법
+### 수정, 삭제 벌크 연산
+쿼리 한번으로 대량의 데이터 수정   
+변경 감지는 여러 쿼리를 사용해야 함
+
+** 벌크 연산은 영속성 컨텍스트를 무시하고 DB에 반영   
+-> 같은 트랜잭션 내에서 조회 시 결과가 다름
+=> 벌크 연산을 하고 나면 영속성 컨텍스트를 초기화 해줌
+
+```java
+@Test
+void bulkUpdate() {
+    long count = queryFactory
+            .update(member)
+            .set(member.name, "청소년")
+            .where(member.age.lt(15))
+            .execute();
+
+    assertThat(count).isEqualTo(1);
+
+    em.flush();
+    em.clear();
+}
+```
+벌크 연산이 적용된 데이터 수 반환
+
+### SQL function 호출
+org.hibernate.dialect에 등록되어 있는 함수 사용 가능
+```java
+@Test
+void sqlFunction() {
+    List<String> result = queryFactory
+            .select(
+                    Expressions.stringTemplate("function('replace', {0}, {1}, {2})",
+                            member.name, "member", "M")
+            )
+            .from(member)
+            .fetch();
+}
+```
+
