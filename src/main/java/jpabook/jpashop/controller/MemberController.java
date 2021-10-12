@@ -3,6 +3,9 @@ package jpabook.jpashop.controller;
 import jpabook.jpashop.domain.Address;
 import jpabook.jpashop.domain.Member;
 import jpabook.jpashop.dto.MemberDto;
+import jpabook.jpashop.dto.MemberSearchCondition;
+import jpabook.jpashop.dto.MemberTeamDto;
+import jpabook.jpashop.repository.MemberJpaRepository;
 import jpabook.jpashop.repository.MemberRepository;
 import jpabook.jpashop.service.MemberService;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +16,7 @@ import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.validation.Valid;
 import java.util.List;
@@ -23,6 +27,7 @@ public class MemberController {
 
     private final MemberService memberService;
     private final MemberRepository memberRepository;
+    private final MemberJpaRepository memberJpaRepository;
 
     @GetMapping("/members/new")
     public String createForm(Model model) {
@@ -64,5 +69,11 @@ public class MemberController {
         // 메소드 참조: 람다 표현식이 하나의 메소드만을 호출하는 경우 매개변수를 제거하고 사용 가능
         // 생성자 참조 시 new 사용
         return page.map(MemberDto::new);
+    }
+
+    @GetMapping("/members/search/v1")
+    @ResponseBody
+    public List<MemberTeamDto> searchMemberV1(MemberSearchCondition condition) {
+        return memberJpaRepository.search(condition);
     }
 }
