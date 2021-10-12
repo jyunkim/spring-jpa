@@ -1,6 +1,8 @@
 spring:
+  profiles:
+    active: local # 샘플 데이터 추가 시 테스트에 영향을 주지 않도록 프로파일 분리
   datasource:
-    url: jdbc:h2:tcp://localhost/~/Spring/jpashop
+    url: jdbc:h2:tcp://localhost/~/jpashop
     username: sa
     password:
     driver-class-name: org.h2.Driver
