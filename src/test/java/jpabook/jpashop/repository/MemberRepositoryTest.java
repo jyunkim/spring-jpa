@@ -156,7 +156,7 @@ public class MemberRepositoryTest {
         assertThat(slice.hasNext()).isTrue();
 
         // 페이지를 유지하면서 엔티티를 DTO로 변환
-        Page<MemberDto> dtoPage = page.map(member -> new MemberDto(member.getId(), member.getName()));
+        Page<MemberDto> dtoPage = page.map(member -> new MemberDto(member.getName(), member.getAge()));
     }
 
     @Test
