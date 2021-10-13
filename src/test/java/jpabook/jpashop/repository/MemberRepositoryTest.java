@@ -3,6 +3,8 @@ package jpabook.jpashop.repository;
 import jpabook.jpashop.domain.Member;
 import jpabook.jpashop.domain.Team;
 import jpabook.jpashop.dto.MemberDto;
+import jpabook.jpashop.dto.MemberSearchCondition;
+import jpabook.jpashop.dto.MemberTeamDto;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,8 +27,8 @@ import static org.assertj.core.api.Assertions.*;
 @Transactional
 public class MemberRepositoryTest {
 
-    @Autowired MemberRepository memberRepository;
     @PersistenceContext EntityManager em;
+    @Autowired MemberRepository memberRepository;
 
     @Test
     void basicCRUD() {
@@ -259,5 +261,76 @@ public class MemberRepositoryTest {
         for (NameOnly nameOnly : content) {
             System.out.println(nameOnly.getName());
         }
+    }
+
+    @Test
+    void searchTest() {
+        createMemberTeam();
+
+        MemberSearchCondition condition = new MemberSearchCondition();
+        condition.setTeamName("team1");
+        condition.setAgeGoe(20);
+        condition.setAgeLoe(24);
+
+        List<MemberTeamDto> result = memberRepository.search(condition);
+
+        assertThat(result).extracting("username").containsExactly("member3");
+    }
+
+    @Test
+    void searchPageSimple() {
+        createMemberTeam();
+
+        MemberSearchCondition condition = new MemberSearchCondition();
+//        condition.setTeamName("team1");
+//        condition.setAgeGoe(20);
+//        condition.setAgeLoe(24);
+        PageRequest pageRequest = PageRequest.of(0, 3);
+
+        Page<MemberTeamDto> result = memberRepository.searchPageSimple(condition, pageRequest);
+
+        assertThat(result.getSize()).isEqualTo(3);
+        assertThat(result.getContent())
+                .extracting("username")
+                .containsExactly("member1", "member2", "member3");
+    }
+
+    private void createMemberTeam() {
+        Team t1 = new Team();
+        t1.setName("team1");
+        em.persist(t1);
+
+        Team t2 = new Team();
+        t2.setName("team2");
+        em.persist(t2);
+
+        Member m1 = new Member();
+        m1.setName("member1");
+        m1.setAge(10);
+        m1.setTeam(t1);
+        memberRepository.save(m1);
+
+        Member m2 = new Member();
+        m2.setName("member2");
+        m2.setAge(20);
+        m2.setTeam(t2);
+        memberRepository.save(m2);
+
+        Member m3 = new Member();
+        m3.setName("member3");
+        m3.setAge(20);
+        m3.setTeam(t1);
+        memberRepository.save(m3);
+
+        Member m4 = new Member();
+        m4.setAge(25);
+        m4.setTeam(t1);
+        memberRepository.save(m4);
+
+        Member m5 = new Member();
+        m5.setName("member5");
+        m5.setAge(25);
+        m5.setTeam(t2);
+        memberRepository.save(m5);
     }
 }
