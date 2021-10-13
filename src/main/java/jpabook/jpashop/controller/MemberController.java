@@ -27,7 +27,6 @@ public class MemberController {
 
     private final MemberService memberService;
     private final MemberRepository memberRepository;
-    private final MemberJpaRepository memberJpaRepository;
 
     @GetMapping("/members/new")
     public String createForm(Model model) {
@@ -74,6 +73,18 @@ public class MemberController {
     @GetMapping("/members/search/v1")
     @ResponseBody
     public List<MemberTeamDto> searchMemberV1(MemberSearchCondition condition) {
-        return memberJpaRepository.search(condition);
+        return memberRepository.search(condition);
+    }
+
+    @GetMapping("/members/search/v2")
+    @ResponseBody
+    public Page<MemberTeamDto> searchMemberV2(MemberSearchCondition condition, Pageable pageable) {
+        return memberRepository.searchPageSimple(condition, pageable);
+    }
+
+    @GetMapping("/members/search/v3")
+    @ResponseBody
+    public Page<MemberTeamDto> searchMemberV3(MemberSearchCondition condition, Pageable pageable) {
+        return memberRepository.searchPageComplex(condition, pageable);
     }
 }
