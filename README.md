@@ -689,7 +689,7 @@ concat, substring, trim, length, locate, lower, upper 등
 select m from Member m join fetch m.team   
 -> SELECT M.*, T.* FROM MEMBER M INNER JOIN TEAM T ON M.TEAM_ID=T.ID
 
-
+사용하는 경우
 - em.find()   
 pk를 인자로 입력받기 때문에 연관관계가 있을 시 JPA 내부에서 최적화를 통해 join으로 한번에 가져옴   
 지연 로딩 - join을 사용하지 않고 연관 객체를 프록시로 가져온 후 프록시의 메서드를 호출할 때 조회 쿼리를 추가로 날림

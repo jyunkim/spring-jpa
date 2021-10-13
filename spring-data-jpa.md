@@ -6,6 +6,7 @@ JpaRepository<엔티티 타입, 식별자 타입> 상속
 
 ### 패키지 구조
 ![스크린샷 2021-10-05 오후 4 35 46](https://user-images.githubusercontent.com/68456385/135980074-ad36dbb4-49e3-4bf4-afcb-e42db00f0154.png)
+
 spring-data-commons   
 org.springframework.data.repository   
 -> 공통 기능
