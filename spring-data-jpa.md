@@ -253,6 +253,12 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 - EntityManager 직접 사용
 - JdbcTemplate
 - Querydsl
+
+구현 방법
+1. 사용자 정의 인터페이스 작성
+2. 사용자 정의 인터페이스 구현(구현 클래스의 이름 = 스프링 데이터 레포지토리 + Impl)
+3. 스프링 데이터 리포지토리에 사용자 정의 인터페이스 상속
+
 ```java
 public interface MemberRepositoryCustom {
 
@@ -377,7 +383,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 - 동적 쿼리 불가
 - DTO로 반환하기 어려움 -> JdbcTemplate 이나 myBatis 사용
 
-**Projections과 조합**   
+**Projections와 조합**   
 ```java
 public interface MemberRepository extends JpaRepository<Member, Long> {
 

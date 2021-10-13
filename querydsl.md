@@ -458,3 +458,130 @@ void sqlFunction() {
 }
 ```
 
+## 스프링 데이터 JPA 활용
+### 페이징
+데이터와 카운트 조회 한번에 수행
+```java
+public Page<MemberTeamDto> searchPageSimple(MemberSearchCondition condition, Pageable pageable) {
+    QueryResults<MemberTeamDto> results = queryFactory
+            .select(new QMemberTeamDto(
+                    member.id,
+                    member.name,
+                    member.age,
+                    team.id,
+                    team.name
+            ))
+            .from(member)
+            .leftJoin(member.team, team)
+            .where(
+                    usernameEq(condition.getUsername()),
+                    teamNameEq(condition.getTeamName()),
+                    ageGoe(condition.getAgeGoe()),
+                    ageLoe(condition.getAgeLoe())
+            )
+            .offset(pageable.getOffset())
+            .limit(pageable.getPageSize())
+            .fetchResults();
+
+    List<MemberTeamDto> content = results.getResults();
+    long total = results.getTotal();
+
+    return new PageImpl<>(content, pageable, total);
+}
+```
+
+데이터와 카운트를 별도로 조회   
+-> count 쿼리 최적화 가능(데이터가 많은 경우)
+- join하지 않아도 되는 경우 join x
+- count 쿼리 생략 가능한 경우 생략 -> PageableExecutionUtils.getPage 사용
+  - 첫번째 페이지인데 컨텐츠 사이즈가 페이지 사이즈보다 작을 때
+  - 마지막 페이지일 경우(offset, 컨텐츠 사이즈로 전체 사이즈 구함)
+```java
+public Page<MemberTeamDto> searchPageComplex(MemberSearchCondition condition, Pageable pageable) {
+    List<MemberTeamDto> results = queryFactory
+            .select(new QMemberTeamDto(
+                    member.id,
+                    member.name,
+                    member.age,
+                    team.id,
+                    team.name
+            ))
+            .from(member)
+            .leftJoin(member.team, team)
+            .where(
+                    usernameEq(condition.getUsername()),
+                    teamNameEq(condition.getTeamName()),
+                    ageGoe(condition.getAgeGoe()),
+                    ageLoe(condition.getAgeLoe())
+            )
+            .offset(pageable.getOffset())
+            .limit(pageable.getPageSize())
+            .fetch();
+
+    // 카운트 쿼리 최적화
+    JPAQuery<Member> countQuery = queryFactory
+            .selectFrom(member)
+//                .leftJoin(member.team, team)
+            .where(
+                    usernameEq(condition.getUsername()),
+                    teamNameEq(condition.getTeamName()),
+                    ageGoe(condition.getAgeGoe()),
+                    ageLoe(condition.getAgeLoe())
+            );
+//                .fetchCount();
+
+    // count 쿼리를 생략할 수 있는 경우 fetchCount() 실행 x
+//        return new PageImpl<>(results, pageable, total);
+    return PageableExecutionUtils.getPage(results, pageable, countQuery::fetchCount);
+}
+```
+
+### 정렬
+스프링 데이터 Sort를 Querydsl의 OrderSpecifier로 변환
+```java
+JPAQuery<Member> query = queryFactory.selectFrom(member);
+
+for (Sort.Order o : pageable.getSort()) {
+    PathBuilder pathBuilder = new PathBuilder(member.getType(), member.getMetadata());
+    query.orderBy(new OrderSpecifier(
+            o.isAscending() ? Order.ASC : Order.DESC,
+            pathBuilder.get(o.getProperty())));
+    }
+
+List<Member> result = query.fetch();
+```
+
+### QuerydslPredicateExecutor
+스프링 데이터 JPA 메서드 파라미터로 Predicate 조건을 넣을 수 있음
+
+한계점
+- left join 불가
+- 서비스 계층이 Querydsl에 의존
+- 실무에서 사용하기 어려움
+
+### Querydsl Web
+Query string으로 Predicate 조건을 받을 수 있음
+
+한계점
+- 단순한 조건만 가능
+- 조건을 커스텀하기 어려움
+- 컨트롤러 계층이 Querydsl에 의존
+- 실무에서 사용하기 어려움
+
+### QuerydslRepositorySupport
+Querydsl을 사용하는 레포지토리에서 상속받아 사용하는 추상 클래스   
+여러 유틸리티 제공   
+페이징을 편리하게 사용 가능
+
+한계점
+- Querydsl 3.x 버전을 대상으로 만들어져 JPAQueryFactory를 제공하지 않음
+- 정렬 기능이 정상 동작하지 않음
+
+### Querydsl 지원 클래스 직접 생성
+QuerydslRepositorySupport가 지닌 한계를 개선
+
+- 스프링 데이터 JPA의 페이징을 편리하게 변환
+- 페이징과 카운트 쿼리 분리
+- 스프링 데이터 JPA 정렬 지원
+- select()로 시작 가능
+- EntityManager, QueryFactory 제공
